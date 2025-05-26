@@ -1,0 +1,40 @@
+{
+    "port": 8080,
+    "cert_file": "cert.pem",
+    "key_file": "key.pem",
+    "algorithm": "round-robin",
+    "health_check": {
+        "interval": "5s",
+        "timeout": "2s",
+        "path": "/health"
+    },
+    "circuit_breaker": {
+        "failure_threshold": 5,
+        "reset_timeout": "30s",
+        "half_open_limit": 3
+    },
+    "retry": {
+        "max_retries": 3,
+        "initial_interval": "100ms",
+        "max_interval": "1s",
+        "multiplier": 2.0,
+        "randomization": 0.1
+    },
+    "backends": [
+        {
+            "id": "backend1",
+            "url": "http://localhost:8081",
+            "weight": 1
+        },
+        {
+            "id": "backend2",
+            "url": "http://localhost:8082",
+            "weight": 1
+        },
+        {
+            "id": "backend3",
+            "url": "http://localhost:8083",
+            "weight": 1
+        }
+    ]
+} 
