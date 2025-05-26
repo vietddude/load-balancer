@@ -36,15 +36,31 @@ func (p *Proxy) SetBalancer(b *balancer.Balancer) {
 
 // ServeHTTP implements the http.Handler interface
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Handle metrics request
+	if r.URL.Path == "/metrics" {
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		w.Write([]byte(p.metrics.GetPrometheusMetrics()))
+		return
+	}
+
+	// Increment total requests
+	p.metrics.IncrementTotalRequests()
+
 	// Get next backend
 	backend, err := p.balancer.GetBackend()
 	if err != nil {
+		p.metrics.IncrementFailedRequests()
 		http.Error(w, "No healthy backends available", http.StatusServiceUnavailable)
 		return
 	}
 
+	// Increment backend requests
+	p.metrics.IncrementBackendRequests(backend.ID)
+
 	// Forward request
 	if err := p.forwardRequest(w, r, backend); err != nil {
+		p.metrics.IncrementFailedRequests()
+		p.metrics.IncrementBackendFailures(backend.ID)
 		http.Error(w, "Failed to forward request", http.StatusBadGateway)
 		return
 	}

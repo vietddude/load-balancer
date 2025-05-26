@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "load-balancer"
+    static_configs:
+      - targets: ["load-balancer:8080"]
+    metrics_path: "/metrics"
