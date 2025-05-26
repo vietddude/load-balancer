@@ -2,7 +2,7 @@
     "server": {
         "port": 8080,
         "tls": {
-            "enabled": true,
+            "enabled": false,
             "cert_file": "certs/server.crt",
             "key_file": "certs/server.key",
             "reload_interval": "1h",

@@ -23,9 +23,11 @@ func main() {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.URL.Path {
 			case "/health":
+				log.Printf("%d /health", *port)
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("OK"))
 			default:
+				log.Printf("%d /", *port)
 				w.WriteHeader(http.StatusOK)
 				w.Write(fmt.Appendf(nil, "Server running on port %d", *port))
 			}

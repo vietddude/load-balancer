@@ -119,6 +119,7 @@ func (c *HTTPChecker) Type() CheckType {
 
 // Scheduler manages health checks for multiple backends
 type Scheduler struct {
+	interval time.Duration
 	checkers map[string]Checker
 	results  chan Result
 	stop     chan struct{}
@@ -126,8 +127,9 @@ type Scheduler struct {
 }
 
 // NewScheduler creates a new health check scheduler
-func NewScheduler() *Scheduler {
+func NewScheduler(interval time.Duration) *Scheduler {
 	return &Scheduler{
+		interval: interval,
 		checkers: make(map[string]Checker),
 		results:  make(chan Result, 100),
 		stop:     make(chan struct{}),
@@ -165,7 +167,7 @@ func (s *Scheduler) Results() <-chan Result {
 }
 
 func (s *Scheduler) runChecker(backendID string, checker Checker) {
-	ticker := time.NewTicker(time.Second * 10) // Default interval, should be configurable
+	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
 	for {

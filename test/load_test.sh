@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Configuration
-LB_URL="https://localhost:8080"
+LB_URL="http://localhost:8080"
 NUM_REQUESTS=500
 CONCURRENCY=50  # Reduced from 10 to 2
-REQUEST_DELAY=0.01  # 500ms delay between requests
+REQUEST_DELAY=0.1  # 500ms delay between requests
 ENDPOINT="/"  # Changed from /health to root endpoint
 
 # Colors for output
@@ -23,10 +23,10 @@ echo "----------------------------------------"
 
 # Function to make a single request
 make_request() {
-    local start_time=$(date +%s%N)
+    local start_time=$(date +%s.%N)
     local response=$(curl -s -w "\n%{http_code}\n%{time_total}" "$LB_URL$ENDPOINT")
-    local end_time=$(date +%s%N)
-    local duration=$((($end_time - $start_time)/1000000)) # Convert to milliseconds
+    local end_time=$(date +%s.%N)
+    local duration=$(echo "scale=3; ($end_time - $start_time) * 1000" | bc) # Convert to milliseconds
     
     # Split response into body, status code, and total time
     local body=$(echo "$response" | head -n 1)

@@ -52,7 +52,7 @@ func main() {
 	}
 
 	// Initialize health check scheduler
-	scheduler := health.NewScheduler()
+	scheduler := health.NewScheduler(time.Duration(cfg.HealthCheck.Interval))
 
 	// Add backends from configuration
 	for _, backendCfg := range cfg.Backends {

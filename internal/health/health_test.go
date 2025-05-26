@@ -67,7 +67,7 @@ func TestScheduler(t *testing.T) {
 		hc.BackendID = b.ID()
 	}
 
-	scheduler := NewScheduler()
+	scheduler := NewScheduler(5 * time.Second)
 
 	// Add backend and checker
 	scheduler.AddBackend(b.ID(), b, checker)
@@ -120,7 +120,7 @@ done:
 }
 
 func TestSchedulerStop(t *testing.T) {
-	scheduler := NewScheduler()
+	scheduler := NewScheduler(5 * time.Second)
 
 	// Create a backend
 	b := backend.New("test-backend", "http://slow-server", 1)
