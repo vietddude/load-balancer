@@ -24,7 +24,10 @@ type Backend struct {
 
 // New creates a new backend
 func New(id string, urlStr string, weight int) *Backend {
-	parsedURL, _ := url.Parse(urlStr)
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return nil
+	}
 	return &Backend{
 		id:           id,
 		url:          parsedURL,
