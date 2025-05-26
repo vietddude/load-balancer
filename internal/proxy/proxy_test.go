@@ -1,13 +1,17 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"load-balancer/internal/backend"
 	"load-balancer/internal/balancer"
 	"load-balancer/internal/metrics"
+	"load-balancer/internal/retry"
+	"load-balancer/internal/session"
 )
 
 func TestProxy(t *testing.T) {
@@ -20,15 +24,35 @@ func TestProxy(t *testing.T) {
 
 	// Create a backend pointing to our test server
 	b := backend.New("test-backend", server.URL, 1)
+	b.SetRetryConfig(&retry.Config{
+		MaxRetries:      3,
+		InitialInterval: 100 * time.Millisecond,
+		MaxInterval:     time.Second,
+		Multiplier:      2,
+		Randomization:   0.1,
+	})
 
 	// Create balancer and add backend
 	bal := balancer.New("round-robin")
 	bal.AddBackend("test-backend", b)
 
+	sessionConfig := session.Config{
+		Enabled:         true,
+		Type:            session.IPBased,
+		CookieName:      "session",
+		TTL:             10 * time.Second,
+		MaxSessions:     100,
+		CleanupInterval: 10 * time.Second,
+	}
+	// Create a session manager
+	sessionManager := session.NewManager(sessionConfig)
+
 	// Create proxy and set balancer
 	proxy := New(metrics.New())
 	proxy.SetBalancer(bal)
+	proxy.SetSessionManager(sessionManager)
 
+	fmt.Println(proxy)
 	// Test cases
 	tests := []struct {
 		name          string
