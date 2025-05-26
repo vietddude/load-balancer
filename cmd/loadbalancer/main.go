@@ -19,6 +19,7 @@ import (
 	"load-balancer/internal/metrics"
 	"load-balancer/internal/proxy"
 	"load-balancer/internal/retry"
+	"load-balancer/pkg/tls"
 )
 
 func main() {
@@ -85,11 +86,28 @@ func main() {
 		Handler: p,
 	}
 
+	// Initialize TLS if enabled
+	var tlsManager *tls.Manager
+	if cfg.Server.TLS.Enabled {
+		tlsConfig, err := cfg.GetTLSConfig()
+		if err != nil {
+			log.Fatalf("Failed to get TLS config: %v", err)
+		}
+
+		tlsManager, err = tls.NewManager(*tlsConfig)
+		if err != nil {
+			log.Fatalf("Failed to initialize TLS manager: %v", err)
+		}
+
+		// Set TLS config on server
+		server.TLSConfig = tlsManager.GetTLSConfig()
+	}
+
 	// Start server in a goroutine
 	go func() {
-		if cfg.Server.CertFile != "" && cfg.Server.KeyFile != "" {
+		if cfg.Server.TLS.Enabled {
 			log.Printf("Starting server with TLS on port %d", cfg.Server.Port)
-			if err := server.ListenAndServeTLS(cfg.Server.CertFile, cfg.Server.KeyFile); err != nil && err != http.ErrServerClosed {
+			if err := server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 				log.Fatalf("Failed to start server: %v", err)
 			}
 		} else {
@@ -113,6 +131,11 @@ func main() {
 
 	// Stop health checks
 	scheduler.Stop()
+
+	// Stop TLS manager if it exists
+	if tlsManager != nil {
+		tlsManager.Stop()
+	}
 
 	// Shutdown server
 	if err := server.Shutdown(ctx); err != nil {

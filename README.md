@@ -104,10 +104,10 @@ load-balancer/
 
 ### TLS Support
 
-- TLS termination
-- Dynamic certificate loading
-- SNI support
-- Configurable TLS versions and ciphers
+- Basic TLS termination with certificate files
+- Configuration via cert_file and key_file in config
+- Note: Certificate files must be provided by the user
+- Note: Dynamic certificate reloading and SNI support are planned features
 
 ### Dynamic Configuration
 

@@ -1,9 +1,13 @@
 package config
 
 import (
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
+
+	tlsmanager "load-balancer/pkg/tls"
 )
 
 // Duration is a custom type for time.Duration that supports JSON unmarshaling
@@ -28,12 +32,22 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(time.Duration(d).String())
 }
 
+// TLSConfig represents TLS configuration
+type TLSConfig struct {
+	Enabled        bool     `json:"enabled"`
+	CertFile       string   `json:"cert_file"`
+	KeyFile        string   `json:"key_file"`
+	ReloadInterval Duration `json:"reload_interval"`
+	MinVersion     string   `json:"min_version"`
+	MaxVersion     string   `json:"max_version"`
+	CipherSuites   []string `json:"cipher_suites"`
+}
+
 // Config represents the load balancer configuration
 type Config struct {
 	Server struct {
-		Port     int    `json:"port"`
-		CertFile string `json:"cert_file"`
-		KeyFile  string `json:"key_file"`
+		Port int       `json:"port"`
+		TLS  TLSConfig `json:"tls"`
 	} `json:"server"`
 
 	// Load balancer configuration
@@ -107,6 +121,19 @@ func Load(path string) (*Config, error) {
 		config.Algorithm = "round-robin"
 	}
 
+	// Set default TLS configuration
+	if config.Server.TLS.ReloadInterval == 0 {
+		config.Server.TLS.ReloadInterval = Duration(5 * time.Minute)
+	}
+
+	if config.Server.TLS.MinVersion == "" {
+		config.Server.TLS.MinVersion = "TLS12"
+	}
+
+	if config.Server.TLS.MaxVersion == "" {
+		config.Server.TLS.MaxVersion = "TLS13"
+	}
+
 	return &config, nil
 }
 
@@ -119,4 +146,81 @@ func (c *Config) Save(path string) error {
 	defer file.Close()
 
 	return json.NewEncoder(file).Encode(c)
+}
+
+// GetTLSConfig converts the TLS configuration to a tls.Config
+func (c *Config) GetTLSConfig() (*tlsmanager.Config, error) {
+	if !c.Server.TLS.Enabled {
+		return nil, nil
+	}
+
+	// Convert TLS version strings to constants
+	minVersion, err := parseTLSVersion(c.Server.TLS.MinVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	maxVersion, err := parseTLSVersion(c.Server.TLS.MaxVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert cipher suite strings to constants
+	cipherSuites, err := parseCipherSuites(c.Server.TLS.CipherSuites)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tlsmanager.Config{
+		CertFile:       c.Server.TLS.CertFile,
+		KeyFile:        c.Server.TLS.KeyFile,
+		ReloadInterval: time.Duration(c.Server.TLS.ReloadInterval),
+		MinVersion:     minVersion,
+		MaxVersion:     maxVersion,
+		CipherSuites:   cipherSuites,
+	}, nil
+}
+
+// parseTLSVersion converts a TLS version string to a constant
+func parseTLSVersion(version string) (uint16, error) {
+	switch version {
+	case "TLS10":
+		return tls.VersionTLS10, nil
+	case "TLS11":
+		return tls.VersionTLS11, nil
+	case "TLS12":
+		return tls.VersionTLS12, nil
+	case "TLS13":
+		return tls.VersionTLS13, nil
+	default:
+		return 0, fmt.Errorf("unsupported TLS version: %s", version)
+	}
+}
+
+// parseCipherSuites converts cipher suite strings to constants
+func parseCipherSuites(suites []string) ([]uint16, error) {
+	if len(suites) == 0 {
+		return nil, nil
+	}
+
+	result := make([]uint16, len(suites))
+	for i, suite := range suites {
+		switch suite {
+		case "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384":
+			result[i] = tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+		case "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":
+			result[i] = tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+		case "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305":
+			result[i] = tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+		case "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305":
+			result[i] = tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+		case "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256":
+			result[i] = tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+		case "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":
+			result[i] = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+		default:
+			return nil, fmt.Errorf("unsupported cipher suite: %s", suite)
+		}
+	}
+	return result, nil
 }

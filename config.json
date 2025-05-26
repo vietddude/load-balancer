@@ -1,12 +1,28 @@
 {
-    "port": 8080,
-    "cert_file": "cert.pem",
-    "key_file": "key.pem",
+    "server": {
+        "port": 8080,
+        "tls": {
+            "enabled": true,
+            "cert_file": "certs/server.crt",
+            "key_file": "certs/server.key",
+            "reload_interval": "1h",
+            "min_version": "TLS12",
+            "max_version": "TLS13",
+            "cipher_suites": [
+                "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+                "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+                "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+                "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+                "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+                "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+            ]
+        }
+    },
     "algorithm": "round-robin",
     "health_check": {
-        "interval": "5s",
-        "timeout": "2s",
-        "path": "/health"
+        "path": "/health",
+        "interval": "30s",
+        "timeout": "5s"
     },
     "circuit_breaker": {
         "failure_threshold": 5,
@@ -17,7 +33,7 @@
         "max_retries": 3,
         "initial_interval": "100ms",
         "max_interval": "1s",
-        "multiplier": 2.0,
+        "multiplier": 2,
         "randomization": 0.1
     },
     "backends": [
