@@ -29,7 +29,7 @@ func TestHTTPChecker(t *testing.T) {
 
 	// Set backend ID
 	if hc, ok := checker.(*HTTPChecker); ok {
-		hc.BackendID = b.ID
+		hc.BackendID = b.ID()
 	}
 
 	// Perform health check
@@ -40,8 +40,8 @@ func TestHTTPChecker(t *testing.T) {
 		t.Errorf("Expected successful health check, got failure: %v", result.Error)
 	}
 
-	if result.BackendID != b.ID {
-		t.Errorf("Expected backend ID '%s', got '%s'", b.ID, result.BackendID)
+	if result.BackendID != b.ID() {
+		t.Errorf("Expected backend ID '%s', got '%s'", b.ID(), result.BackendID)
 	}
 }
 
@@ -64,13 +64,13 @@ func TestScheduler(t *testing.T) {
 
 	// Set backend ID
 	if hc, ok := checker.(*HTTPChecker); ok {
-		hc.BackendID = b.ID
+		hc.BackendID = b.ID()
 	}
 
 	scheduler := NewScheduler()
 
 	// Add backend and checker
-	scheduler.AddBackend(b.ID, b, checker)
+	scheduler.AddBackend(b.ID(), b, checker)
 
 	// Start scheduler
 	scheduler.Start()
@@ -90,7 +90,7 @@ func TestScheduler(t *testing.T) {
 	}
 
 	// Test removing backend
-	scheduler.RemoveBackend(b.ID)
+	scheduler.RemoveBackend(b.ID())
 
 	// Stop the scheduler to prevent any more health checks
 	scheduler.Stop()

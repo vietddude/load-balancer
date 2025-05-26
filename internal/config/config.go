@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"load-balancer/internal/session"
 	tlsmanager "load-balancer/pkg/tls"
 )
 
@@ -52,6 +53,16 @@ type Config struct {
 
 	// Load balancer configuration
 	Algorithm string `json:"algorithm"`
+
+	// Sticky session configuration
+	StickySession struct {
+		Enabled         bool     `json:"enabled"`
+		Type            string   `json:"type"`
+		CookieName      string   `json:"cookie_name"`
+		TTL             Duration `json:"ttl"`
+		MaxSessions     int      `json:"max_sessions"`
+		CleanupInterval Duration `json:"cleanup_interval"`
+	} `json:"sticky_session"`
 
 	// Health check configuration
 	HealthCheck struct {
@@ -134,6 +145,20 @@ func Load(path string) (*Config, error) {
 		config.Server.TLS.MaxVersion = "TLS13"
 	}
 
+	// Set default sticky session configuration
+	if config.StickySession.CookieName == "" {
+		config.StickySession.CookieName = "lb_session"
+	}
+	if config.StickySession.TTL == 0 {
+		config.StickySession.TTL = Duration(24 * time.Hour)
+	}
+	if config.StickySession.MaxSessions == 0 {
+		config.StickySession.MaxSessions = 10000
+	}
+	if config.StickySession.CleanupInterval == 0 {
+		config.StickySession.CleanupInterval = Duration(1 * time.Hour)
+	}
+
 	return &config, nil
 }
 
@@ -179,6 +204,18 @@ func (c *Config) GetTLSConfig() (*tlsmanager.Config, error) {
 		MaxVersion:     maxVersion,
 		CipherSuites:   cipherSuites,
 	}, nil
+}
+
+// GetSessionConfig converts the sticky session configuration to a session.Config
+func (c *Config) GetSessionConfig() session.Config {
+	return session.Config{
+		Enabled:         c.StickySession.Enabled,
+		Type:            session.Type(c.StickySession.Type),
+		CookieName:      c.StickySession.CookieName,
+		TTL:             time.Duration(c.StickySession.TTL),
+		MaxSessions:     c.StickySession.MaxSessions,
+		CleanupInterval: time.Duration(c.StickySession.CleanupInterval),
+	}
 }
 
 // parseTLSVersion converts a TLS version string to a constant

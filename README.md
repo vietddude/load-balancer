@@ -1,5 +1,10 @@
 # Load Balancer
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/vietddude/load-balancer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/vietddude/load-balancer)](https://goreportcard.com/report/github.com/vietddude/load-balancer)
+![CI](https://github.com/vietddude/load-balancer/actions/workflows/go.yml/badge.svg)
+![GitHub last commit](https://img.shields.io/github/last-commit/vietddude/load-balancer)
+
 A high-performance load balancer written in Go with support for:
 
 - Multiple load balancing algorithms (Round Robin, Least Connections, Random, Weighted Round Robin)

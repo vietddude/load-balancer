@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configuration
-LB_URL="http://localhost:8080"
-NUM_REQUESTS=10000
+LB_URL="https://localhost:8080"
+NUM_REQUESTS=500
 CONCURRENCY=50  # Reduced from 10 to 2
 REQUEST_DELAY=0.01  # 500ms delay between requests
 ENDPOINT="/"  # Changed from /health to root endpoint

@@ -3,6 +3,7 @@ package proxy
 import (
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -10,19 +11,21 @@ import (
 	"load-balancer/internal/balancer"
 	"load-balancer/internal/metrics"
 	"load-balancer/internal/retry"
+	"load-balancer/internal/session"
 )
 
-// Proxy represents a reverse proxy
+// Proxy represents a load balancer proxy
 type Proxy struct {
-	balancer *balancer.Balancer
+	balancer balancer.Balancer
 	metrics  *metrics.Metrics
+	session  *session.Manager
 	client   *http.Client
 }
 
 // New creates a new proxy
-func New(metrics *metrics.Metrics) *Proxy {
+func New(m *metrics.Metrics) *Proxy {
 	return &Proxy{
-		metrics: metrics,
+		metrics: m,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -30,8 +33,13 @@ func New(metrics *metrics.Metrics) *Proxy {
 }
 
 // SetBalancer sets the load balancer
-func (p *Proxy) SetBalancer(b *balancer.Balancer) {
+func (p *Proxy) SetBalancer(b balancer.Balancer) {
 	p.balancer = b
+}
+
+// SetSessionManager sets the session manager
+func (p *Proxy) SetSessionManager(s *session.Manager) {
+	p.session = s
 }
 
 // ServeHTTP implements the http.Handler interface
@@ -46,34 +54,62 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Increment total requests
 	p.metrics.IncrementTotalRequests()
 
-	// Get next backend
-	backend, err := p.balancer.GetBackend()
-	if err != nil {
-		p.metrics.IncrementFailedRequests()
-		http.Error(w, "No healthy backends available", http.StatusServiceUnavailable)
-		return
+	// Check for existing session
+	var backendID string
+	if p.session != nil {
+		backendID = p.session.GetBackendID(r)
+	}
+
+	// Get backend from balancer
+	var backend *backend.Backend
+	var err error
+	if backendID != "" {
+		backend, err = p.balancer.GetBackend(backendID)
+		if err != nil {
+			backend = nil
+		}
+	}
+	if backend == nil {
+		backend, err = p.balancer.Next()
+		if err != nil {
+			p.metrics.IncrementFailedRequests()
+			http.Error(w, "No available backends", http.StatusServiceUnavailable)
+			return
+		}
 	}
 
 	// Increment backend requests
-	p.metrics.IncrementBackendRequests(backend.ID)
-
-	// Forward request
-	if err := p.forwardRequest(w, r, backend); err != nil {
-		p.metrics.IncrementFailedRequests()
-		p.metrics.IncrementBackendFailures(backend.ID)
-		http.Error(w, "Failed to forward request", http.StatusBadGateway)
+	p.metrics.IncrementBackendRequests(backend.ID())
+	log.Printf("Incoming request %s to backend %s", r.URL.Path, backend.ID())
+	// Forward request to backend
+	err = p.forwardRequest(w, r, backend)
+	if err != nil {
+		p.metrics.IncrementBackendFailures(backend.ID())
+		switch err {
+		case ErrBackendUnavailable:
+			http.Error(w, "Backend unavailable", http.StatusServiceUnavailable)
+		case ErrBackendError:
+			http.Error(w, "Backend error", http.StatusBadGateway)
+		default:
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
 		return
+	}
+
+	// Set session if enabled
+	if p.session != nil {
+		p.session.SetBackendID(r, w, backend.ID())
 	}
 }
 
 // forwardRequest forwards a request to a backend
 func (p *Proxy) forwardRequest(w http.ResponseWriter, r *http.Request, b *backend.Backend) error {
 	// Increment active connections
-	p.metrics.IncrementActiveConnections(b.ID)
-	defer p.metrics.DecrementActiveConnections(b.ID)
+	p.metrics.IncrementActiveConnections(b.ID())
+	defer p.metrics.DecrementActiveConnections(b.ID())
 
 	// Create request to backend
-	req, err := http.NewRequest(r.Method, b.URL+r.URL.Path, r.Body)
+	req, err := http.NewRequest(r.Method, b.URL().String()+r.URL.Path, r.Body)
 	if err != nil {
 		return err
 	}

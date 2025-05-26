@@ -19,6 +19,14 @@
         }
     },
     "algorithm": "round-robin",
+    "sticky_session": {
+        "enabled": true,
+        "type": "cookie",
+        "cookie_name": "lb_session",
+        "ttl": "24h",
+        "max_sessions": 10000,
+        "cleanup_interval": "1h"
+    },
     "health_check": {
         "path": "/health",
         "interval": "30s",

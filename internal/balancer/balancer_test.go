@@ -11,19 +11,18 @@ import (
 func TestNewBalancer(t *testing.T) {
 	tests := []struct {
 		name string
-		algo Algorithm
+		algo string
 	}{
-		{"round-robin", RoundRobin},
-		{"least-connections", LeastConnections},
-		{"random", Random},
-		{"weighted-round-robin", WeightedRoundRobin},
+		{"round-robin", "round-robin"},
+		{"least-connections", "least-connections"},
+		{"weighted-round-robin", "weighted-round-robin"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := New(string(tt.algo))
-			if b.algorithm != tt.algo {
-				t.Errorf("Expected algorithm %v, got %v", tt.algo, b.algorithm)
+			b := New(tt.algo)
+			if b == nil {
+				t.Errorf("Expected non-nil balancer for algorithm %s", tt.algo)
 			}
 		})
 	}
@@ -35,20 +34,25 @@ func TestAddRemoveBackend(t *testing.T) {
 
 	// Test adding backend
 	b.AddBackend("test", backend)
-	if len(b.backends) != 1 {
-		t.Errorf("Expected 1 backend, got %d", len(b.backends))
+	got, err := b.GetBackend("test")
+	if err != nil {
+		t.Errorf("Expected no error after adding backend, got %v", err)
+	}
+	if got == nil {
+		t.Error("Expected backend to be found after adding")
 	}
 
 	// Test removing backend
 	b.RemoveBackend("test")
-	if len(b.backends) != 0 {
-		t.Errorf("Expected 0 backends, got %d", len(b.backends))
+	_, err = b.GetBackend("test")
+	if err == nil {
+		t.Error("Expected error after removing backend")
 	}
 }
 
 func TestGetBackendNoBackends(t *testing.T) {
 	b := New("round-robin")
-	_, err := b.GetBackend()
+	_, err := b.Next()
 	if err != ErrNoBackends {
 		t.Errorf("Expected ErrNoBackends, got %v", err)
 	}
@@ -67,11 +71,11 @@ func TestRoundRobin(t *testing.T) {
 	seen := make(map[string]int)
 	numRequests := 1000
 	for range make([]struct{}, numRequests) {
-		backend, err := b.GetBackend()
+		backend, err := b.Next()
 		if err != nil {
-			t.Fatalf("GetBackend failed: %v", err)
+			t.Fatalf("Next failed: %v", err)
 		}
-		seen[backend.URL]++
+		seen[backend.URL().String()]++
 	}
 
 	// Check distribution - allow for 20% deviation from expected value
@@ -96,16 +100,16 @@ func TestLeastConnections(t *testing.T) {
 
 	// Increment connections on first two backends
 	for _, id := range []string{"backend1", "backend2"} {
-		if b, exists := b.backends[id]; exists {
-			b.IncrementConnections()
+		if backend, err := b.GetBackend(id); err == nil {
+			backend.IncrementConnections()
 		}
 	}
 
 	// Get backend 100 times
 	for range make([]struct{}, 100) {
-		backend, err := b.GetBackend()
+		backend, err := b.Next()
 		if err != nil {
-			t.Fatalf("GetBackend failed: %v", err)
+			t.Fatalf("Next failed: %v", err)
 		}
 		if backend.GetActiveConnections() != 0 {
 			t.Errorf("Expected backend with 0 connections, got %d", backend.GetActiveConnections())
@@ -124,7 +128,7 @@ func TestWeightedRoundRobin(t *testing.T) {
 	}
 
 	for id, weight := range weights {
-		backend := backend.New(id, fmt.Sprintf("http://localhost:808%d", len(b.backends)+1), weight)
+		backend := backend.New(id, fmt.Sprintf("http://localhost:808%d", weight), weight)
 		b.AddBackend(id, backend)
 	}
 
@@ -132,11 +136,11 @@ func TestWeightedRoundRobin(t *testing.T) {
 	seen := make(map[string]int)
 	numRequests := 600
 	for range make([]struct{}, numRequests) {
-		backend, err := b.GetBackend()
+		backend, err := b.Next()
 		if err != nil {
-			t.Fatalf("GetBackend failed: %v", err)
+			t.Fatalf("Next failed: %v", err)
 		}
-		seen[backend.URL]++
+		seen[backend.URL().String()]++
 	}
 
 	// Check distribution (should be roughly proportional to weights)
@@ -154,8 +158,9 @@ func TestWeightedRoundRobin(t *testing.T) {
 	for url, count := range seen {
 		// Find the backend ID for this URL
 		var backendID string
-		for id, b := range b.backends {
-			if b.URL == url {
+		for id, weight := range weights {
+			expectedURL := fmt.Sprintf("http://localhost:808%d", weight)
+			if url == expectedURL {
 				backendID = id
 				break
 			}

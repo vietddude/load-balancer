@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -62,6 +63,7 @@ func NewHTTPChecker(endpoint string, config Config) Checker {
 		config: Config{
 			Type:       HTTPCheck,
 			Endpoint:   endpoint,
+			Interval:   config.Interval,
 			Timeout:    config.Timeout,
 			Method:     "GET",
 			Path:       config.Path,
@@ -163,7 +165,7 @@ func (s *Scheduler) Results() <-chan Result {
 }
 
 func (s *Scheduler) runChecker(backendID string, checker Checker) {
-	ticker := time.NewTicker(time.Second) // Default interval, should be configurable
+	ticker := time.NewTicker(time.Second * 10) // Default interval, should be configurable
 	defer ticker.Stop()
 
 	for {
@@ -174,6 +176,7 @@ func (s *Scheduler) runChecker(backendID string, checker Checker) {
 
 			// Update backend health status
 			if b, exists := s.backends[backendID]; exists {
+				log.Printf("Backend %s health check result: %v", backendID, result)
 				b.SetHealth(result.Success)
 			}
 		case <-s.stop:

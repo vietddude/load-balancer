@@ -7,14 +7,14 @@ import (
 
 	"load-balancer/internal/circuitbreaker"
 	"load-balancer/internal/retry"
-	checkUrl "net/url"
+	"net/url"
 )
 
 // Backend represents a backend server
 type Backend struct {
-	ID             string
-	URL            string
-	Weight         int
+	id             string
+	url            *url.URL
+	weight         int
 	IsHealthy      bool
 	CurrentConns   int32
 	mu             sync.RWMutex
@@ -23,31 +23,42 @@ type Backend struct {
 }
 
 // New creates a new backend
-func New(id, url string, weight int) *Backend {
-	// Check valid URL
-	_, err := checkUrl.Parse(url)
-	if err != nil {
-		return nil
-	}
-
+func New(id string, urlStr string, weight int) *Backend {
+	parsedURL, _ := url.Parse(urlStr)
 	return &Backend{
-		ID:        id,
-		URL:       url,
-		Weight:    weight,
-		IsHealthy: true,
+		id:           id,
+		url:          parsedURL,
+		weight:       weight,
+		IsHealthy:    true,
+		CurrentConns: 0,
 		circuitBreaker: circuitbreaker.New(circuitbreaker.Config{
 			FailureThreshold: 5,
 			ResetTimeout:     30 * time.Second,
 			HalfOpenLimit:    3,
 		}),
-		retryConfig: &retry.Config{
-			MaxRetries:      3,
-			InitialInterval: 100 * time.Millisecond,
-			MaxInterval:     1 * time.Second,
-			Multiplier:      2.0,
-			Randomization:   0.1,
-		},
 	}
+}
+
+// ID returns the backend ID
+func (b *Backend) ID() string {
+	return b.id
+}
+
+// URL returns the backend URL
+func (b *Backend) URL() *url.URL {
+	return b.url
+}
+
+// Weight returns the backend weight
+func (b *Backend) Weight() int {
+	return b.weight
+}
+
+// SetWeight sets the backend weight
+func (b *Backend) SetWeight(weight int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.weight = weight
 }
 
 // SetHealth sets the health status of the backend
@@ -84,7 +95,7 @@ func (b *Backend) GetActiveConnections() int {
 
 // GetWeight returns the weight of the backend
 func (b *Backend) GetWeight() int {
-	return b.Weight
+	return b.weight
 }
 
 // SetRetryConfig sets the retry configuration

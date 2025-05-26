@@ -19,6 +19,7 @@ import (
 	"load-balancer/internal/metrics"
 	"load-balancer/internal/proxy"
 	"load-balancer/internal/retry"
+	"load-balancer/internal/session"
 	"load-balancer/pkg/tls"
 )
 
@@ -42,6 +43,13 @@ func main() {
 	// Initialize proxy
 	p := proxy.New(m)
 	p.SetBalancer(b)
+
+	// Initialize session manager if sticky sessions are enabled
+	if cfg.StickySession.Enabled {
+		sessionManager := session.NewManager(cfg.GetSessionConfig())
+		p.SetSessionManager(sessionManager)
+		defer sessionManager.Stop()
+	}
 
 	// Initialize health check scheduler
 	scheduler := health.NewScheduler()
