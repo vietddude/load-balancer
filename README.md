@@ -11,6 +11,10 @@ A high-performance load balancer written in Go with support for:
 - Dynamic backend management with hot reloading
 - Docker support with Prometheus and Grafana monitoring
 
+## DeepWiki
+
+For detailed documentation, visit our [DeepWiki](https://deepwiki.com/vietddude/load-balancer).
+
 ## Project Structure
 
 ```
