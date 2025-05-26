@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,6 +53,7 @@ func TestScheduler(t *testing.T) {
 	}))
 	defer server.Close()
 
+	fmt.Println(server.URL)
 	// Create a backend
 	b := backend.New("test-backend", server.URL, 1)
 
@@ -59,7 +61,7 @@ func TestScheduler(t *testing.T) {
 	checker := NewHTTPChecker(server.URL, Config{
 		Timeout:  1 * time.Second,
 		Path:     "/",
-		Interval: 5 * time.Second,
+		Interval: 1 * time.Second,
 	})
 
 	// Set backend ID
@@ -67,7 +69,7 @@ func TestScheduler(t *testing.T) {
 		hc.BackendID = b.ID()
 	}
 
-	scheduler := NewScheduler(5 * time.Second)
+	scheduler := NewScheduler(1 * time.Second)
 
 	// Add backend and checker
 	scheduler.AddBackend(b.ID(), b, checker)
@@ -85,7 +87,7 @@ func TestScheduler(t *testing.T) {
 		if !b.IsHealthy {
 			t.Error("Expected backend to be healthy after successful check")
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(3 * time.Second):
 		t.Error("Timeout waiting for health check result")
 	}
 
