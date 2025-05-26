@@ -9,6 +9,7 @@ A high-performance load balancer written in Go with support for:
 - Metrics collection and Prometheus integration
 - TLS termination with dynamic certificate loading
 - Dynamic backend management with hot reloading
+- Docker support with Prometheus and Grafana monitoring
 
 ## Project Structure
 
@@ -44,6 +45,14 @@ load-balancer/
 │       └── tls.go            # TLS termination helper (cert loading, config)
 ├── scripts/
 │   └── run_backends.sh       # Helper script to spin up dummy backend servers for testing
+├── prometheus/
+│   └── prometheus.yml        # Prometheus configuration
+├── grafana/
+│   └── provisioning/         # Grafana provisioning configuration
+│       └── datasources/
+│           └── prometheus.yml
+├── docker-compose.yml        # Docker Compose configuration
+├── Dockerfile               # Docker build configuration
 ├── go.mod
 ├── go.sum
 └── README.md
@@ -86,6 +95,8 @@ load-balancer/
 - Backend health status
 - Circuit breaker states
 - Active connections per backend
+- Grafana dashboards for visualization
+- Real-time monitoring and alerting
 
 ### TLS Support
 
@@ -101,7 +112,16 @@ load-balancer/
 - Weight adjustment without restart
 - Health check parameter updates
 
+### Docker Support
+
+- Containerized deployment
+- Multi-stage builds for smaller images
+- Docker Compose for easy setup
+- Integrated monitoring stack
+
 ## Getting Started
+
+### Local Development
 
 1. Clone the repository:
 
@@ -132,6 +152,24 @@ load-balancer/
    ```bash
    ./loadbalancer -config config.yaml
    ```
+
+### Docker Deployment
+
+1. Build and start all services:
+
+   ```bash
+   docker-compose up -d
+   ```
+
+2. Access the services:
+
+   - Load Balancer: http://localhost:8080
+   - Prometheus: http://localhost:9090
+   - Grafana: http://localhost:3000 (login with admin/admin)
+
+3. View metrics:
+   - Prometheus metrics are available at http://localhost:8080/metrics
+   - Grafana dashboards are pre-configured with Prometheus data source
 
 ## Configuration
 
@@ -177,6 +215,28 @@ metrics:
     enabled: true
     path: "/metrics"
 ```
+
+## Monitoring
+
+The project includes a complete monitoring stack:
+
+### Prometheus
+
+- Scrapes metrics every 15 seconds
+- Stores metrics data persistently
+- Accessible at http://localhost:9090
+
+### Grafana
+
+- Pre-configured with Prometheus data source
+- Default credentials: admin/admin
+- Accessible at http://localhost:3000
+- Includes dashboards for:
+  - Request rates and latencies
+  - Backend health status
+  - Circuit breaker states
+  - Active connections
+  - Error rates
 
 ## Contributing
 
